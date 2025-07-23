@@ -1,22 +1,92 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小红书爆款文案生成器</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini API Proxy</title>
+  <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+  <script type="module">
+    import { h, render, Component } from 'https://esm.sh/preact';
+    import { useState, useCallback } from 'https://esm.sh/preact/hooks';
+    import htm from 'https://esm.sh/htm';
+
+    const html = htm.bind(h);
+
+    function App() {
+      const [apiKey, setApiKey] = useState('');
+      const [message, setMessage] = useState('');
+      const [response, setResponse] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSubmit = useCallback(async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setResponse('');
+
+        const res = await fetch('./supabase/functions/v1/gemini-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey, message }),
+        });
+
+        if (!res.ok) {
+          const { error } = await res.json();
+          setResponse(`Error: ${error}`);
+          setLoading(false);
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          setResponse(buffer);
+        }
+
+        setLoading(false);
+      }, [apiKey, message]);
+
+      return html`
+        <div class="p-4 font-sans">
+          <h1 class="text-2xl font-bold mb-4">Gemini API Proxy</h1>
+          <form onSubmit=${handleSubmit}>
+            <input
+              type="password"
+              class="border p-2 rounded w-full mb-2"
+              placeholder="Enter your API Key"
+              value=${apiKey}
+              onInput=${(e) => setApiKey(e.target.value)}
+            />
+            <textarea
+              class="border p-2 rounded w-full mb-2"
+              placeholder="Enter your message"
+              value=${message}
+              onInput=${(e) => setMessage(e.target.value)}
+            />
+            <button
+              type="submit"
+              class="bg-blue-500 text-white p-2 rounded w-full"
+              disabled=${loading}
+            >
+              ${loading ? 'Loading...' : 'Send'}
+            </button>
+          </form>
+          ${response && html`
+            <div class="mt-4 p-4 border rounded bg-gray-100">
+              <h2 class="font-bold mb-2">Response:</h2>
+              <p>${response}</p>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.body);
+  </script>
 </head>
-<body>
-    <div class="container">
-        <h1>小红书爆款文案生成器</h1>
-        <div class="input-area">
-            <input type="text" id="keywords" placeholder="输入关键词，用逗号分隔">
-            <button id="generate-btn">生成文案</button>
-        </div>
-        <div id="output-area">
-            <!-- 生成的文案将显示在这里 -->
-        </div>
-    </div>
-    <script src="script.js"></script>
-</body>
+<body></body>
 </html>
